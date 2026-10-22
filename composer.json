@@ -1,0 +1,20 @@
+{
+  "name": "lfcheng92/crm-policy",
+  "description": "Framework-independent CRM ownership, public-pool and capacity decisions with a SQLite transaction example.",
+  "type": "library",
+  "license": "proprietary",
+  "require": {"php": "^8.2"},
+  "require-dev": {"phpunit/phpunit": "^11.5", "phpstan/phpstan": "^2.1"},
+  "suggest": {"ext-pdo": "Required by the optional SQLite executor", "ext-pdo_sqlite": "Required by SQLite examples and integration tests"},
+  "autoload": {"psr-4": {"Lfcheng92\\CrmPolicy\\": "src/"}},
+  "autoload-dev": {"psr-4": {"Lfcheng92\\CrmPolicy\\Tests\\": "tests/"}},
+  "scripts": {
+    "test": "phpunit",
+    "analyse": "phpstan analyse --no-progress",
+    "lint": "@php tools/lint.php",
+    "examples": ["@php examples/agency.php", "@php examples/education.php", "@php examples/sqlite.php"],
+    "check": ["@lint", "@test", "@analyse", "@examples"]
+  },
+  "config": {"sort-packages": true, "allow-plugins": false},
+  "archive": {"exclude": ["/vendor", "/.git", "/.github", "/tests", "/tools", "/phpunit.xml", "/phpstan.neon", "/composer.lock", "/.phpunit.cache", "/.phpstan", "/LOCAL_VERIFICATION.md", "/build"]}
+}

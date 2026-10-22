@@ -1,0 +1,13 @@
+Distribution status: no open-source license selected.
+
+This independently written first version is being prepared for local and private
+verification. No general permission for public redistribution or an open-source
+license is granted by this file. Composer's "proprietary" metadata records this
+pending distribution status; it does not determine legal ownership.
+
+Rights and contractual clearance must be assessed before choosing a license or
+making a public release. Reimplementation alone does not establish ownership or
+remove third-party obligations. This notice does not relicense employer-owned
+or third-party material. Dependencies keep their original licenses.
+
+See SOURCES.md and NOTICE.md for the implementation and dependency boundaries.

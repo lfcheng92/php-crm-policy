@@ -1,0 +1,8 @@
+parameters:
+    level: 8
+    # Public array inputs remain validated at runtime even when PHPDoc describes valid callers.
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - src
+        - examples
+    tmpDir: .phpstan
