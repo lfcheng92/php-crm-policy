@@ -106,6 +106,8 @@ $executor = new SqliteExecutor($pdo, new CapacityPolicy(false, false), $clock);
 
 `(tenant_id,request_id)` 是幂等键。相同规范化命令返回最初结果，成功和业务拒绝都会缓存；顺序不同或重复 ID 不改变指纹。不同 actor/action/customer/target 复用同一键抛 `IdempotencyConflict`，不会覆盖结果。业务规则或容量后来改变时，新的尝试须使用新 requestId；原来的重试继续返回原结果。幂等结果不是“当前是否允许”的查询接口。
 
+本适配器在构造、每次执行前及取得事务后只读检查 journal_mode，仅接受 DELETE/TRUNCATE/PERSIST/MEMORY/WAL；OFF 或未知模式抛 `LogicException`，不会自动切换日志模式。连接在构造后被改为 OFF 同样会被拒绝；调用方须自行恢复支持的模式后再重试。MEMORY 只提供进程存续时的事务回滚，不增加断电/宕机保证。
+
 本适配器要求专用 PDO 连接，无外层事务；显式 SQL COMMIT/ROLLBACK 与 BEGIN 配对。`busy_timeout=5000`，锁等待超过时间、数据库不可写或非法持久数据会抛异常，不伪装成业务拒绝。存储时间必须是绝对格式 `Y-m-d\TH:i:s.uP`（微秒和时区偏移），例如 `2026-01-01T12:00:00.000000+00:00`；不接受相对日期。`Schema::create` 不使用 `IF NOT EXISTS` 来掩盖已有不兼容 schema。
 
 这是可运行的 SQLite 协议示例，未宣称任意应用数据库自动并发安全。未验证网络文件系统、跨主复制、MySQL/PostgreSQL 或绕过协议的其他写入者。需要生产审计表、版本化迁移、幂等记录保留策略和业务状态更新接口时由应用补足；删除幂等记录会缩短去重保证期。

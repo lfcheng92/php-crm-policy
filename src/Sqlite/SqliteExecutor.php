@@ -14,6 +14,7 @@ final class SqliteExecutor
     {
         if ($pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) !== 'sqlite') { throw new \InvalidArgumentException('SQLite PDO required.'); }
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $this->assertRollbackJournal();
         $pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
         $pdo->exec('PRAGMA foreign_keys = ON');
         $pdo->exec('PRAGMA busy_timeout = 5000');
@@ -23,10 +24,12 @@ final class SqliteExecutor
     public function execute(Command $command): ExecutionResult
     {
         if ($this->running || $this->pdo->inTransaction()) { throw new \LogicException('Use a dedicated PDO connection without an outer transaction.'); }
+        $this->assertRollbackJournal();
         // Explicit SQL COMMIT/ROLLBACK pair with BEGIN IMMEDIATE: PDO bookkeeping is not relied on.
         $this->pdo->exec('BEGIN IMMEDIATE');
         $this->running = true;
         try {
+            $this->assertRollbackJournal();
             $query = $this->pdo->prepare('SELECT fingerprint, result_json FROM crm_requests WHERE tenant_id = ? AND request_id = ?');
             $query->execute([$command->tenantId, $command->requestId]);
             $stored = $query->fetch();
@@ -109,6 +112,17 @@ final class SqliteExecutor
         }
         $query->closeCursor();
         return new Snapshot($command->tenantId, $customers, $members, $usage, $this->clock->now());
+    }
+
+    private function assertRollbackJournal(): void
+    {
+        // Inspect only: the caller owns journal configuration and may change it between calls.
+        $query = $this->pdo->query('PRAGMA journal_mode');
+        if ($query === false) { throw new \LogicException('Cannot inspect SQLite journal mode.'); }
+        try { $mode = $query->fetchColumn(); } finally { $query->closeCursor(); }
+        if (!is_string($mode) || !in_array(strtolower($mode), ['delete', 'truncate', 'persist', 'memory', 'wal'], true)) {
+            throw new \LogicException('SQLite journal mode must support rollback; OFF and unknown modes are not supported.');
+        }
     }
 
     private function validateReplay(Decision $decision, Command $command): void

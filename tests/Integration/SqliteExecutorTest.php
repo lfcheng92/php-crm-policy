@@ -309,6 +309,78 @@ final class SqliteExecutorTest extends TestCase
         self::assertNull($this->row()['owner_id']); self::assertSame(0, $this->row()['version']);
     }
 
+    public function testConstructorRejectsDisabledJournalWithoutChangingIt(): void
+    {
+        F::storeCustomer($this->pdo, F::customer());
+        self::assertSame('off', $this->pdo->query('PRAGMA journal_mode = OFF')->fetchColumn());
+        try { $this->executor(); self::fail('Expected unsupported journal mode.'); }
+        catch (\LogicException $error) { self::assertStringContainsString('journal mode', $error->getMessage()); }
+        self::assertSame('off', $this->pdo->query('PRAGMA journal_mode')->fetchColumn());
+        self::assertNull($this->row()['owner_id']); self::assertSame(0, $this->requestCount());
+    }
+
+    public function testJournalChangedAfterConstructionIsRejectedBeforeSpillAndTrigger(): void
+    {
+        F::storeCustomer($this->pdo, F::customer('a'));
+        // Put b on a different customer leaf page; the failing trigger forces dirty-page spilling.
+        for ($i = 0; $i < 150; ++$i) {
+            F::storeCustomer($this->pdo, F::customer('filler-' . str_pad((string) $i, 100, '0', STR_PAD_LEFT), department: str_repeat('d', 100)));
+        }
+        F::storeCustomer($this->pdo, F::customer('b'));
+        $this->pdo->exec('CREATE TABLE synthetic_pressure (id INTEGER PRIMARY KEY, payload TEXT)');
+        $insert = $this->pdo->prepare('INSERT INTO synthetic_pressure (payload) VALUES (?)');
+        for ($i = 0; $i < 300; ++$i) { $insert->execute([str_repeat('x', 4000)]); }
+        $insert->closeCursor();
+        $this->pdo->exec("CREATE TRIGGER fail BEFORE UPDATE ON crm_customers WHEN NEW.id = 'b' BEGIN UPDATE synthetic_pressure SET payload = replace(payload, 'x', 'y'); SELECT RAISE(ABORT, 'synthetic failure'); END");
+        $executor = $this->executor();
+        $this->pdo->exec('PRAGMA cache_size = 5');
+        $this->pdo->exec('PRAGMA cache_spill = ON');
+        self::assertSame('off', $this->pdo->query('PRAGMA journal_mode = OFF')->fetchColumn());
+        $command = new Command('t', 'alice', 'spill-safe', Action::Claim, ['a', 'b']);
+        try { $executor->execute($command); self::fail('Expected journal mode rejection before any update.'); }
+        catch (\LogicException $error) { self::assertStringContainsString('journal mode', $error->getMessage()); }
+        self::assertSame('off', $this->pdo->query('PRAGMA journal_mode')->fetchColumn());
+        self::assertNull($this->row('a')['owner_id']); self::assertNull($this->row('b')['owner_id']);
+        self::assertSame(0, $this->row('a')['version']); self::assertSame(0, $this->requestCount());
+        self::assertSame(0, (int) $this->pdo->query("SELECT COUNT(*) FROM synthetic_pressure WHERE substr(payload, 1, 1) = 'y'")->fetchColumn());
+
+        // Only the caller restores configuration. The same failing trigger now rolls back all effects.
+        self::assertSame('delete', $this->pdo->query('PRAGMA journal_mode = DELETE')->fetchColumn());
+        try { $executor->execute($command); self::fail('Expected the real trigger failure.'); } catch (\PDOException) {}
+        self::assertNull($this->row('a')['owner_id']); self::assertNull($this->row('b')['owner_id']);
+        self::assertSame(0, $this->row('a')['version']); self::assertSame(0, $this->requestCount());
+        self::assertSame(0, (int) $this->pdo->query("SELECT COUNT(*) FROM synthetic_pressure WHERE substr(payload, 1, 1) = 'y'")->fetchColumn());
+        $reopened = new \PDO('sqlite:' . $this->database);
+        self::assertSame(0, (int) $reopened->query('SELECT COUNT(*) FROM crm_customers WHERE owner_id IS NOT NULL')->fetchColumn());
+        self::assertSame(0, (int) $reopened->query("SELECT COUNT(*) FROM synthetic_pressure WHERE substr(payload, 1, 1) = 'y'")->fetchColumn());
+        $reopened = null;
+        $this->pdo->exec('DROP TRIGGER fail');
+        self::assertTrue($executor->execute($command)->decision->allowed);
+        self::assertSame(1, $this->requestCount()); self::assertSame(1, $this->row('a')['version']);
+        self::assertSame(1, $this->row('b')['version']);
+    }
+
+    #[DataProvider('rollbackJournalModes')]
+    public function testSupportedJournalModeRemainsUnchangedAndRollsBack(string $mode): void
+    {
+        self::assertSame($mode, $this->pdo->query('PRAGMA journal_mode = ' . $mode)->fetchColumn());
+        F::storeCustomer($this->pdo, F::customer('a')); F::storeCustomer($this->pdo, F::customer('b'));
+        $this->pdo->exec("CREATE TRIGGER fail BEFORE UPDATE ON crm_customers WHEN NEW.id = 'b' BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END");
+        $executor = $this->executor(); $command = new Command('t', 'alice', 'mode-safe', Action::Claim, ['a', 'b']);
+        try { $executor->execute($command); self::fail('Expected real SQL failure.'); } catch (\PDOException) {}
+        self::assertNull($this->row('a')['owner_id']); self::assertNull($this->row('b')['owner_id']);
+        self::assertSame(0, $this->row('a')['version']); self::assertSame(0, $this->requestCount());
+        self::assertSame($mode, $this->pdo->query('PRAGMA journal_mode')->fetchColumn());
+        $this->pdo->exec('DROP TRIGGER fail');
+        self::assertTrue($executor->execute($command)->decision->allowed);
+        self::assertSame($mode, $this->pdo->query('PRAGMA journal_mode')->fetchColumn());
+    }
+
+    public static function rollbackJournalModes(): iterable
+    {
+        foreach (['delete', 'truncate', 'persist', 'memory', 'wal'] as $mode) { yield $mode => [$mode]; }
+    }
+
     /** @param resource $stream */
     private function line($stream): string
     {
