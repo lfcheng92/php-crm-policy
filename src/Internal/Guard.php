@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Internal;
+namespace Lfcheng\CrmPolicy\Internal;
 
 /** @internal */
 final class Guard

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Sqlite;
+namespace Lfcheng\CrmPolicy\Sqlite;
 
 /** Opt-in example schema. Use a new, dedicated SQLite database, never an existing CRM schema. */
 final class Schema

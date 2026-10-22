@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Tests\Support;
+namespace Lfcheng\CrmPolicy\Tests\Support;
 
-use Lfcheng92\CrmPolicy\Clock;
+use Lfcheng\CrmPolicy\Clock;
 
 final class FrozenClock implements Clock
 {

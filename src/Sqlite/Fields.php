@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Sqlite;
+namespace Lfcheng\CrmPolicy\Sqlite;
 
 /** @internal Strict decoding: malformed stored data throws; it never supplies a grant or count. */
 final class Fields

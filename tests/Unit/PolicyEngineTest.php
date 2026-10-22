@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Tests\Unit;
+namespace Lfcheng\CrmPolicy\Tests\Unit;
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command, CustomerStatus, Member, PolicyEngine, Reason, Role, Scope, Snapshot, SystemClock};
-use Lfcheng92\CrmPolicy\Tests\Support\{Fixtures as F, FrozenClock};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command, CustomerStatus, Member, PolicyEngine, Reason, Role, Scope, Snapshot, SystemClock};
+use Lfcheng\CrmPolicy\Tests\Support\{Fixtures as F, FrozenClock};
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

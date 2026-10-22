@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command, Customer, CustomerStatus, Member, PolicyEngine, Reason, Role, Scope, Snapshot, SystemClock};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command, Customer, CustomerStatus, Member, PolicyEngine, Reason, Role, Scope, Snapshot, SystemClock};
 
 // Synthetic education business: enrolled/won customers continue to consume advisor capacity.
 $clock = new SystemClock();

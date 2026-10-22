@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command, Customer, CustomerStatus, Member, PolicyEngine, Role, Scope, Snapshot, SystemClock};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command, Customer, CustomerStatus, Member, PolicyEngine, Role, Scope, Snapshot, SystemClock};
 
 // Synthetic agency: won and abandoned customers do not occupy active prospect capacity.
 $clock = new SystemClock();

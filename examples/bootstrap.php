@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use Lfcheng92\CrmPolicy\PolicyEngine;
+use Lfcheng\CrmPolicy\PolicyEngine;
 
 if (!class_exists(PolicyEngine::class)) {
     $autoload = dirname(__DIR__) . '/vendor/autoload.php';

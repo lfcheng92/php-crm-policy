@@ -83,7 +83,7 @@ try {
 <?php
 declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command, Customer, CustomerStatus, Member, PolicyEngine, Role, Scope, Snapshot, SystemClock};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command, Customer, CustomerStatus, Member, PolicyEngine, Role, Scope, Snapshot, SystemClock};
 $clock = new SystemClock();
 $member = new Member('isolated', 'a', 'd', true, 1, [new Role('role', ['claim' => Scope::Own])]);
 $customer = new Customer('isolated', 'c', null, 'd', CustomerStatus::Active, false, null, 0);

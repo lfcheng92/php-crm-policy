@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Sqlite;
+namespace Lfcheng\CrmPolicy\Sqlite;
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Clock, Command, Customer, CustomerStatus, Decision, Member, PolicyEngine, Role, Scope, Snapshot, SystemClock};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Clock, Command, Customer, CustomerStatus, Decision, Member, PolicyEngine, Role, Scope, Snapshot, SystemClock};
 
 /** SQLite-only reference executor. All cooperating writers must use this protocol. */
 final class SqliteExecutor

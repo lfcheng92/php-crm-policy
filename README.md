@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-框架无关的 PHP 8.2+ CRM 客户公海、归属和容量策略。包名 `lfcheng92/crm-policy`，PSR-4 命名空间 `Lfcheng92\CrmPolicy`。领域层无第三方运行时依赖，不查询数据库，不发送通知。
+框架无关的 PHP 8.2+ CRM 客户公海、归属和容量策略。包名 `lfcheng92/crm-policy`，PSR-4 命名空间 `Lfcheng\CrmPolicy`。领域层无第三方运行时依赖，不查询数据库，不发送通知。
 
 这是独立首版，供本地与后续私有验证。尚未发布 Packagist，也未授予开源许可。来源与权利边界见 [SOURCES.md](SOURCES.md)、[LICENSE](LICENSE)、[NOTICE.md](NOTICE.md)。重新实现不自动解决权属问题。
 
@@ -29,7 +29,7 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
 
-use Lfcheng92\CrmPolicy\{
+use Lfcheng\CrmPolicy\{
     Action, CapacityPolicy, Command, Customer, CustomerStatus,
     Member, PolicyEngine, Role, Scope, Snapshot, SystemClock
 };
@@ -93,7 +93,7 @@ if (!$decision->allowed) {
 ## SQLite/PDO 参考执行器
 
 ```php
-use Lfcheng92\CrmPolicy\Sqlite\{Schema, SqliteExecutor};
+use Lfcheng\CrmPolicy\Sqlite\{Schema, SqliteExecutor};
 
 $pdo = new PDO('sqlite::memory:'); // 示例：真实集成测试使用隔离临时文件
 Schema::create($pdo);             // 仅对新建专用数据库执行一次

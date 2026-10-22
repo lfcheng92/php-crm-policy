@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy;
+namespace Lfcheng\CrmPolicy;
 
-use Lfcheng92\CrmPolicy\Internal\Guard;
+use Lfcheng\CrmPolicy\Internal\Guard;
 
 final readonly class Snapshot
 {

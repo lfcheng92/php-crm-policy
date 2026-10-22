@@ -2,8 +2,8 @@
 declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command};
-use Lfcheng92\CrmPolicy\Sqlite\SqliteExecutor;
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command};
+use Lfcheng\CrmPolicy\Sqlite\SqliteExecutor;
 
 try {
     $pdo = new PDO('sqlite:' . $argv[1]);

@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Sqlite;
+namespace Lfcheng\CrmPolicy\Sqlite;
 
-use Lfcheng92\CrmPolicy\{Action, ChangePlan, CustomerChange, Decision, Reason};
+use Lfcheng\CrmPolicy\{Action, ChangePlan, CustomerChange, Decision, Reason};
 
 /** @internal Persisted format v1; do not edit idempotency records manually. */
 final class DecisionCodec

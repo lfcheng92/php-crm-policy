@@ -2,8 +2,8 @@
 declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command};
-use Lfcheng92\CrmPolicy\Sqlite\{Schema, SqliteExecutor};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command};
+use Lfcheng\CrmPolicy\Sqlite\{Schema, SqliteExecutor};
 
 // A temporary, isolated database with invented data. No production connection or credentials.
 $pdo = new PDO('sqlite::memory:');

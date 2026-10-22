@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Sqlite;
+namespace Lfcheng\CrmPolicy\Sqlite;
 
-use Lfcheng92\CrmPolicy\Decision;
+use Lfcheng\CrmPolicy\Decision;
 
 final readonly class ExecutionResult
 {

@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy;
+namespace Lfcheng\CrmPolicy;
 
 /** Pure decisions: no queries, writes, authentication, notifications or global state. */
 final readonly class PolicyEngine

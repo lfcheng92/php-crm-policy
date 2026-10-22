@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy;
+namespace Lfcheng\CrmPolicy;
 
 /** An inert proposal. Never pass an untrusted plan directly to persistence. */
 final readonly class CustomerChange

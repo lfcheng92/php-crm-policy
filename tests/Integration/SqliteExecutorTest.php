@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Tests\Integration;
+namespace Lfcheng\CrmPolicy\Tests\Integration;
 
-use Lfcheng92\CrmPolicy\{Action, CapacityPolicy, Command, CustomerStatus, Reason, Scope};
-use Lfcheng92\CrmPolicy\Sqlite\{ConcurrentChange, IdempotencyConflict, Schema, SqliteExecutor};
-use Lfcheng92\CrmPolicy\Tests\Support\{Fixtures as F, FrozenClock};
+use Lfcheng\CrmPolicy\{Action, CapacityPolicy, Command, CustomerStatus, Reason, Scope};
+use Lfcheng\CrmPolicy\Sqlite\{ConcurrentChange, IdempotencyConflict, Schema, SqliteExecutor};
+use Lfcheng\CrmPolicy\Tests\Support\{Fixtures as F, FrozenClock};
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

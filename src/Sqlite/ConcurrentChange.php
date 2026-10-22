@@ -1,5 +1,5 @@
 <?php
 declare(strict_types=1);
-namespace Lfcheng92\CrmPolicy\Sqlite;
+namespace Lfcheng\CrmPolicy\Sqlite;
 
 final class ConcurrentChange extends \RuntimeException {}

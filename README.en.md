@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-Framework-independent CRM public-pool, ownership and capacity decisions for PHP 8.2+. Composer name: `lfcheng92/crm-policy`; PSR-4 namespace: `Lfcheng92\CrmPolicy`. The core has no third-party runtime dependency, database calls, notifications or global application state.
+Framework-independent CRM public-pool, ownership and capacity decisions for PHP 8.2+. Composer name: `lfcheng92/crm-policy`; PSR-4 namespace: `Lfcheng\CrmPolicy`. The core has no third-party runtime dependency, database calls, notifications or global application state.
 
 This first version is for local and subsequent private verification. It is not on Packagist. No open-source license has been selected. See [SOURCES.md](SOURCES.md), [LICENSE](LICENSE), and [NOTICE.md](NOTICE.md): independent implementation does not automatically settle ownership or contractual rights.
 
@@ -26,7 +26,7 @@ Load the consumer's `vendor/autoload.php`. The optional SQLite executor needs PD
 ```php
 <?php
 require __DIR__ . '/vendor/autoload.php';
-use Lfcheng92\CrmPolicy\{
+use Lfcheng\CrmPolicy\{
     Action, CapacityPolicy, Command, Customer, CustomerStatus,
     Member, PolicyEngine, Role, Scope, Snapshot, SystemClock
 };
