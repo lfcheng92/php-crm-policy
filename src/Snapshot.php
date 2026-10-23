@@ -22,14 +22,17 @@ final readonly class Snapshot
     public function __construct(public string $tenantId, array $customers, array $members, array $capacityUsage, public \DateTimeImmutable $capturedAt)
     {
         Guard::id($tenantId);
+        if (!array_is_list($customers) || !array_is_list($members)) { throw new \InvalidArgumentException('Snapshot entities must be lists.'); }
         $customerMap = [];
         foreach ($customers as $customer) {
+            if (!$customer instanceof Customer) { throw new \InvalidArgumentException('Invalid customer in snapshot.'); }
             $key = 'id:' . $customer->id;
             if (isset($customerMap[$key])) { throw new \InvalidArgumentException('Duplicate customer in snapshot.'); }
             $customerMap[$key] = $customer;
         }
         $memberMap = [];
         foreach ($members as $member) {
+            if (!$member instanceof Member) { throw new \InvalidArgumentException('Invalid member in snapshot.'); }
             $key = 'id:' . $member->id;
             if (isset($memberMap[$key])) { throw new \InvalidArgumentException('Duplicate member in snapshot.'); }
             $memberMap[$key] = $member;

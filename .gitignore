@@ -16,3 +16,4 @@
 *.key
 /auth.json
 /build/
+/.local/

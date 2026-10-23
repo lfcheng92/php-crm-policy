@@ -3,5 +3,5 @@
 /tools export-ignore
 /phpunit.xml export-ignore
 /phpstan.neon export-ignore
-/LOCAL_VERIFICATION.md export-ignore
 /composer.lock export-ignore
+/.local export-ignore

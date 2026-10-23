@@ -4,7 +4,7 @@
 
 框架无关的 PHP 8.2+ CRM 客户公海、归属和容量策略。包名 `lfcheng92/crm-policy`，PSR-4 命名空间 `Lfcheng\CrmPolicy`。领域层无第三方运行时依赖，不查询数据库，不发送通知。
 
-这是独立首版，供本地与后续私有验证。尚未发布 Packagist，也未授予开源许可。来源与权利边界见 [SOURCES.md](SOURCES.md)、[LICENSE](LICENSE)、[NOTICE.md](NOTICE.md)。重新实现不自动解决权属问题。
+这是独立首版，原创代码采用 MIT 许可，尚未发布 Packagist。来源与许可范围见 [SOURCES.md](SOURCES.md)、[LICENSE](LICENSE)、[NOTICE.md](NOTICE.md)。第三方许可保持独立。
 
 ## 安装
 
@@ -102,13 +102,15 @@ $executor = new SqliteExecutor($pdo, new CapacityPolicy(false, false), $clock);
 // $result = $executor->execute($command); // 使用数据库中的身份权限，不接受外部 ChangePlan
 ```
 
-执行器使用 SQLite `BEGIN IMMEDIATE`，先获得写事务，再读取限定 tenant 的客户、成员与实际容量计数；单批次事务应用预期版本和原 owner 条件更新。客户变更与幂等结果在同一事务提交，SQL 异常回滚。示例表通过 `(tenant_id,id)`、复合归属外键和租户限定查询隔离同 ID 客户。SQLite 事务依据见 [官方说明](https://www.sqlite.org/lang_transaction.html)。
+所有持久化表和索引明确位于 SQLite `main`，不会读取或更新 TEMP 同名表，也不会在主库缺表时回退到附加库。执行器使用 SQLite `BEGIN IMMEDIATE`，先获得写事务，再读取限定 tenant 的客户、成员与实际容量计数；单批次事务应用预期版本和原 owner 条件更新。客户变更与幂等结果在同一事务提交，SQL 异常回滚。提交前还会逐条核对计划中的客户归属/部门/版本，以及幂等记录的完整内容；触发器忽略、删除或撤回这些写入时抛 `PersistenceFailure` 并回滚。示例表通过 `(tenant_id,id)`、复合归属外键和租户限定查询隔离同 ID 客户。SQLite 事务依据见 [官方说明](https://www.sqlite.org/lang_transaction.html)。
 
 `(tenant_id,request_id)` 是幂等键。相同规范化命令返回最初结果，成功和业务拒绝都会缓存；顺序不同或重复 ID 不改变指纹。不同 actor/action/customer/target 复用同一键抛 `IdempotencyConflict`，不会覆盖结果。业务规则或容量后来改变时，新的尝试须使用新 requestId；原来的重试继续返回原结果。幂等结果不是“当前是否允许”的查询接口。
 
 本适配器在构造、每次执行前及取得事务后只读检查 journal_mode，仅接受 DELETE/TRUNCATE/PERSIST/MEMORY/WAL；OFF 或未知模式抛 `LogicException`，不会自动切换日志模式。连接在构造后被改为 OFF 同样会被拒绝；调用方须自行恢复支持的模式后再重试。MEMORY 只提供进程存续时的事务回滚，不增加断电/宕机保证。
 
-本适配器要求专用 PDO 连接，无外层事务；显式 SQL COMMIT/ROLLBACK 与 BEGIN 配对。`busy_timeout=5000`，锁等待超过时间、数据库不可写或非法持久数据会抛异常，不伪装成业务拒绝。存储时间必须是绝对格式 `Y-m-d\TH:i:s.uP`（微秒和时区偏移），例如 `2026-01-01T12:00:00.000000+00:00`；不接受相对日期。`Schema::create` 不使用 `IF NOT EXISTS` 来掩盖已有不兼容 schema。
+本适配器要求专用 PDO 连接，无外层事务，并在每次执行时要求 `PDO::ERRMODE_EXCEPTION`。构造后改为静默/警告错误模式会在写入前拒绝，不能把 SQL 失败当作成功；显式 SQL COMMIT/ROLLBACK 与 BEGIN 配对。`busy_timeout=5000`，锁等待超过时间、数据库不可写或非法持久数据会抛异常，不伪装成业务拒绝。存储时间必须是绝对格式 `Y-m-d\TH:i:s.uP`（微秒和时区偏移），例如 `2026-01-01T12:00:00.000000+00:00`；不接受相对日期。`Schema::create` 不使用 `IF NOT EXISTS` 来掩盖已有不兼容 schema。
+
+数据库结构和触发器属于可信部署配置。不要让触发器修改授权、容量或其他批次记录，不能依靠本包验证任意触发器的所有副作用。提交前校验覆盖计划记录及回执，不是完整数据库审计。
 
 这是可运行的 SQLite 协议示例，未宣称任意应用数据库自动并发安全。未验证网络文件系统、跨主复制、MySQL/PostgreSQL 或绕过协议的其他写入者。需要生产审计表、版本化迁移、幂等记录保留策略和业务状态更新接口时由应用补足；删除幂等记录会缩短去重保证期。
 
@@ -118,9 +120,9 @@ $executor = new SqliteExecutor($pdo, new CapacityPolicy(false, false), $clock);
 
 `tenant_mismatch`、`snapshot_expired`、`actor_not_found`、`actor_inactive`、`permission_denied`、`department_missing`、`customer_not_found`、`already_owned`、`not_owned`、`owner_not_found`、`target_not_found`、`target_inactive`、`same_owner`、`protected`、`capacity_missing`、`capacity_exceeded`、`inconsistent_snapshot`。
 
-无效输入（空 ID、非法 UTF-8、控制字符、空/超大批次、负容量/版本、非法 grant 等）抛 `InvalidArgumentException`；错误 PHP 参数类型可能抛 `TypeError`。ID 为 1..128 UTF-8 字节，禁止首尾空白和 ASCII 控制字符，大小写敏感，不做名称匹配。
+无效输入（空 ID、非法 UTF-8、控制字符、空/超大批次、负容量/版本、非法 grant 等）抛 `InvalidArgumentException`；错误 PHP 参数类型可能抛 `TypeError`。ID 为 1..128 UTF-8 字节，禁止首尾 ASCII 空白和 ASCII 控制字符，大小写敏感，不做名称匹配。
 
-执行异常还包括 `IdempotencyConflict`、防御性版本更新失败 `ConcurrentChange`、外层事务 `LogicException`、PDO/JSON/非法存储数据异常。BEGIN 失败没有执行任何业务写入；其他失败尝试回滚，回滚失败则抛 `RuntimeException`，必须丢弃连接并调查。应用自行制定有界重试策略，重试同一命令保持相同 requestId；不得把异常转换为允许。
+执行异常还包括存储后置条件失败 `PersistenceFailure`、`IdempotencyConflict`、防御性版本更新失败 `ConcurrentChange`、外层事务 `LogicException`、PDO/JSON/非法存储数据异常。BEGIN 失败没有执行任何业务写入；其他失败尝试回滚，回滚失败则抛 `RuntimeException`，必须丢弃连接并调查。应用自行制定有界重试策略，重试同一命令保持相同 requestId；不得把异常转换为允许。
 
 ## 示例与验证
 
@@ -141,4 +143,4 @@ composer audit --locked
 - PHPUnit 覆盖错误路径、租户/权限/保护/容量边界、触发器故障回滚及两个独立 PHP 进程争抢同客户/同请求/最后一个容量位；没有使用生产服务。
 - PHPStan level 8 分析 src 与 examples；保留 PHPDoc 所描述输入的运行时校验（`treatPhpDocTypesAsCertain: false`）。
 
-CI 已配置 PHP 8.2/8.3/8.4/8.5；配置不等于已执行。实际本地运行记录在开发目录的 `LOCAL_VERIFICATION.md`，该记录不随源码归档分发。发布边界见 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。
+CI 已配置 PHP 8.2/8.3/8.4/8.5；配置不等于已执行。测试只证明执行过的环境和场景，不保证没有 bug、生产可用性或任意数据库并发安全。开发与贡献要求见 [CONTRIBUTING.md](CONTRIBUTING.md)，许可范围见 [NOTICE.md](NOTICE.md)。

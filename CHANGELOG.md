@@ -1,10 +1,17 @@
 # Changelog
 
-## Unreleased — namespace alignment before public release
+## Unreleased
 
 - Standardize runtime and development PSR-4 namespaces on `Lfcheng\CrmPolicy\`.
-- Composer package name stays `lfcheng92/crm-policy`; repository, behavior, dependencies and license are unchanged.
+- Composer package name stays `lfcheng92/crm-policy`; repository and package coordinates are unchanged.
 - Earlier private-candidate consumers must update imports/FQCNs and regenerate Composer autoload files; no compatibility aliases are provided.
+
+- Qualify persistent SQLite tables/indexes in main to prevent TEMP/attached-schema shadowing.
+- Verify planned customer state and idempotency storage before COMMIT; roll back suppressed or reverted database writes.
+- Reject a connection changed to PDO silent/warning mode; make row fetching independent of default fetch mode.
+- Add real WAL batch/transfer races, deferred-COMMIT failure recovery, numeric/unicode tenant IDs and input/capacity/timezone invariants.
+- License independently written original code under MIT; preserve dependency notices.
+- Remove machine-specific acceptance records and internal upload instructions from distributed source.
 
 ## 0.1.0 — local candidate, 2026-10-22
 
@@ -18,4 +25,4 @@
 - PHPStan, lint, CI configuration, archive inspection and independent Composer consumer checks.
 - Chinese/English documentation and source/license/security boundaries.
 
-Not a published release. Public distribution requires a separate rights, security and explicit approval gate.
+No production, arbitrary-database or physical-service guarantee is implied by these tests.

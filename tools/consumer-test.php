@@ -42,7 +42,7 @@ try {
     $zip = new ZipArchive();
     if ($zip->open($archive) !== true) { throw new RuntimeException('Cannot open generated source archive.'); }
     $manifest = [];
-    $topLevelFiles = ['composer.json', '.gitignore', '.gitattributes', 'README.md', 'README.en.md', 'CHANGELOG.md', 'SECURITY.md', 'SOURCES.md', 'NOTICE.md', 'LICENSE', 'RELEASE_CHECKLIST.md'];
+    $topLevelFiles = ['composer.json', '.gitignore', '.gitattributes', 'README.md', 'README.en.md', 'CHANGELOG.md', 'SECURITY.md', 'SOURCES.md', 'NOTICE.md', 'LICENSE', 'CONTRIBUTING.md'];
     for ($i = 0; $i < $zip->numFiles; ++$i) {
         $name = $zip->getNameIndex($i);
         if ($name === false || str_starts_with($name, '/') || str_contains($name, '..') || str_contains($name, '\\')) { throw new RuntimeException('Unsafe archive entry.'); }
@@ -63,6 +63,8 @@ try {
     foreach (['composer.json', 'README.md', 'README.en.md', 'LICENSE', 'SECURITY.md', 'SOURCES.md', 'src/PolicyEngine.php', 'src/Sqlite/SqliteExecutor.php'] as $required) {
         if (!in_array($required, $manifest, true)) { throw new RuntimeException('Required archive file missing: ' . $required); }
     }
+    $packageManifest = json_decode($zip->getFromName('composer.json'), true, 512, JSON_THROW_ON_ERROR);
+    if (($packageManifest['license'] ?? null) !== 'MIT') { throw new RuntimeException('Original package license metadata must match LICENSE.'); }
     $zip->extractTo($temporary . '/source'); $zip->close();
     $consumer = [
         'name' => 'local/isolated-crm-consumer',
@@ -93,6 +95,19 @@ $package = __DIR__ . '/vendor/lfcheng92/crm-policy/';
 require $package . 'examples/agency.php';
 require $package . 'examples/education.php';
 require $package . 'examples/sqlite.php';
+$pdo = new PDO('sqlite::memory:');
+\Lfcheng\CrmPolicy\Sqlite\Schema::create($pdo);
+$pdo->prepare('INSERT INTO crm_members VALUES (?, ?, ?, ?, ?, ?)')->execute(['smoke', 'actor', 'sales', 1, 1, json_encode([['name'=>'seller','grants'=>['claim'=>1]]], JSON_THROW_ON_ERROR)]);
+$pdo->prepare('INSERT INTO crm_customers VALUES (?, ?, ?, ?, ?, ?, ?, ?)')->execute(['smoke', 'sample', null, 'sales', 'active', 0, null, 0]);
+$pdo->exec("CREATE TRIGGER synthetic_ignore BEFORE INSERT ON crm_requests BEGIN SELECT RAISE(IGNORE); END");
+$executor = new \Lfcheng\CrmPolicy\Sqlite\SqliteExecutor($pdo, new CapacityPolicy(false, false));
+$command = new Command('smoke', 'actor', 'request', Action::Claim, ['sample']);
+try { $executor->execute($command); throw new RuntimeException('Ignored receipt was accepted.'); }
+catch (\Lfcheng\CrmPolicy\Sqlite\PersistenceFailure) {}
+if ((int) $pdo->query('SELECT COUNT(*) FROM crm_customers WHERE owner_id IS NOT NULL')->fetchColumn() !== 0) { throw new RuntimeException('Consumer rollback failed.'); }
+$pdo->exec('DROP TRIGGER synthetic_ignore');
+if (!$executor->execute($command)->decision->allowed || !$executor->execute($command)->replayed) { throw new RuntimeException('Consumer failure recovery failed.'); }
+echo "Installed executor: suppressed receipt rolls back, retry and replay succeed.\n";
 echo "Isolated consumer: core and SQLite OK after removing the source repository.\n";
 PHP);
     runCommand([PHP_BINARY, 'smoke.php'], $temporary . '/consumer', $environment);

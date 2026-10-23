@@ -11,7 +11,7 @@ final readonly class Role
     {
         Guard::id($name);
         foreach ($grants as $action => $scope) {
-            if (Action::tryFrom($action) === null || !$scope instanceof Scope) {
+            if (!is_string($action) || Action::tryFrom($action) === null || !$scope instanceof Scope) {
                 throw new \InvalidArgumentException('Invalid role grant.');
             }
         }

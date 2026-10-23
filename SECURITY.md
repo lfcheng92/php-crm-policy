@@ -1,16 +1,18 @@
 # 安全边界 / Security boundaries
 
-此版本没有公开发布或线上漏洞接收渠道。发现问题时先通过项目所有者已确认的私有沟通渠道报告，不在公开 issue 中附客户资料、数据库内容、token 或密钥；本文件不提供虚构邮箱。
+尚未配置专门的私有漏洞报告入口。发现问题时先通过项目所有者已确认的私有沟通渠道报告，不在公开 issue 中附客户资料、数据库内容、token 或密钥；本文件不提供虚构邮箱。
 
 - tenant 与 actor 必须来自应用认证会话。不要把请求传入的角色、部门、容量、客户状态或快照当作可信事实。包不实现登录、组织同步或 Web 鉴权。
 - 无显式 grant 默认拒绝；角色名称不含隐式超级管理员。领域决定不执行 SQL 或发送通知。Decision 的原因可能披露记录状态，面向不可信客户端时由应用做适当错误映射。
+- 持久化操作明确限定 main；TEMP 同名表不能覆盖授权、客户、容量或回执，主库缺表时不会回退到 attached 数据库。
 - SQLite 执行器从限定 tenant 的可信表重新加载成员、角色、客户与计数；拒绝跨租户数据，prepared statements 绑定所有输入值。执行器是专用 SQLite schema 的参考适配器，不可指向真实业务数据库直接执行 schema 初始化。
 - 两个过期快照可能同时允许；版本比较不足以独立防止两个不同客户争夺最后一个容量位。数据库容量锁/隔离协议必须覆盖所有写入者。修改 won/abandoned 状态或成员部门也需对应协议及一致性处理。
 - requestId 在 tenant 内唯一；相同命令的重放返回旧结果，不重新执行。不同命令复用键抛冲突。应用需要制定保留、配额与鉴权策略，不能允许不可信调用方任意填满幂等表。
 - SQLite journal_mode=OFF 会破坏回滚原子性；在本地缓存溢出和触发器失败场景已复现部分更新持久化。执行器在构造及每次执行前/取得事务后拒绝 OFF 和未知日志模式，仅检查而不更改 journal 配置。构造后修改连接配置也会重新检查；MEMORY 的回滚能力不代表断电持久性。
+- PDO 执行要求异常错误模式；静默/警告模式不会继续写入。提交前核对计划客户和幂等记录的实际存储状态，触发器忽略/撤回写入时失败并回滚。这不能验证任意触发器的外部副作用；schema、触发器及所有写入者仍须可信并遵守协议。
 - PDO 锁超时、I/O、JSON/存储类型错误抛异常；不要捕获后默认允许。失败后回滚，回滚失败要丢弃连接并调查，不自动宣称未写入。
 - 保护截止时间使用微秒与显式时区；存储不接受相对日期。业务对象的时间来源由调用方负责验证。
 - 本轮仅使用内存/临时文件 SQLite 与虚构数据，无生产服务、网络端口或真实客户操作。独立进程测试证明本地 SQLite 场景，不代表生产性能、全数据库兼容或任意部署安全。
 - 源码归档采用白名单核查及常见密钥模式检测；模式检测不能证明不存在任何形式的敏感数据。公开前仍须人工审查来源与内容。
 
-See RELEASE_CHECKLIST.md for the separate public-release gate. No CI job publishes or changes repository visibility.
+No CI job publishes or changes repository visibility. See CONTRIBUTING.md for development checks and NOTICE.md for license boundaries. Do not treat passing tests as proof that no vulnerabilities remain.

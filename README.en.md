@@ -4,7 +4,7 @@
 
 Framework-independent CRM public-pool, ownership and capacity decisions for PHP 8.2+. Composer name: `lfcheng92/crm-policy`; PSR-4 namespace: `Lfcheng\CrmPolicy`. The core has no third-party runtime dependency, database calls, notifications or global application state.
 
-This first version is for local and subsequent private verification. It is not on Packagist. No open-source license has been selected. See [SOURCES.md](SOURCES.md), [LICENSE](LICENSE), and [NOTICE.md](NOTICE.md): independent implementation does not automatically settle ownership or contractual rights.
+This first version is not on Packagist. Original code is MIT licensed. See [SOURCES.md](SOURCES.md), [LICENSE](LICENSE), and [NOTICE.md](NOTICE.md) for provenance and the separate licenses of dependencies.
 
 ## Install locally
 
@@ -72,13 +72,15 @@ Never directly persist an offline or untrusted plan. A custom executor must read
 
 `Sqlite\Schema::create(PDO)` creates an example schema in a **new dedicated** SQLite database. It does not migrate an existing CRM. `Sqlite\SqliteExecutor(PDO, CapacityPolicy, Clock)` accepts commands and returns an `ExecutionResult` with decision/replayed. See [examples/sqlite.php](examples/sqlite.php).
 
-The executor uses `BEGIN IMMEDIATE` before reading, tenant-restricted queries, real database counts, expected versions and previous-owner conditions, then commits ownership changes and idempotency results together. SQL failures roll back the complete batch. Composite keys and owner foreign keys scope IDs to tenants. See [SQLite transaction documentation](https://www.sqlite.org/lang_transaction.html).
+Persistent tables and indexes are explicitly qualified in SQLite `main`; TEMP names cannot shadow authorization, customer or receipt data, and a missing main table never falls back to an attached database. The executor uses `BEGIN IMMEDIATE` before reading, tenant-restricted queries, real database counts, expected versions and previous-owner conditions, then commits ownership changes and idempotency results together. Before commit it verifies every planned owner/department/version and the complete stored idempotency result; ignored, deleted or reverted writes throw `PersistenceFailure` and roll back. SQL failures roll back the complete batch. Composite keys and owner foreign keys scope IDs to tenants. See [SQLite transaction documentation](https://www.sqlite.org/lang_transaction.html).
 
 The executor only inspects journal_mode at construction, before each execution and after acquiring the transaction. It accepts DELETE/TRUNCATE/PERSIST/MEMORY/WAL and rejects OFF or unknown modes with `LogicException`; it never switches the caller's journal configuration. Changing the connection to OFF after construction is also rejected. The caller must restore a supported mode before retrying. MEMORY provides rollback while the process lives, not an added crash or power-loss guarantee.
 
-Use a dedicated PDO connection with no outer transaction. The adapter sets a 5000 ms busy timeout; exhausted locks, malformed stored values and I/O errors throw rather than become business denials. Stored timestamps use exact `Y-m-d\TH:i:s.uP` format with microseconds and an explicit offset, e.g. `2026-01-01T12:00:00.000000+00:00`; relative dates are rejected. Explicit SQL COMMIT/ROLLBACK matches BEGIN; PDO's manual-BEGIN bookkeeping is not assumed.
+Use a dedicated PDO connection with no outer transaction. Each execution requires `PDO::ERRMODE_EXCEPTION`; a connection changed to silent/warning mode is rejected before writes. The adapter sets a 5000 ms busy timeout; exhausted locks, malformed stored values and I/O errors throw rather than become business denials. Stored timestamps use exact `Y-m-d\TH:i:s.uP` format with microseconds and an explicit offset, e.g. `2026-01-01T12:00:00.000000+00:00`; relative dates are rejected. Explicit SQL COMMIT/ROLLBACK matches BEGIN; PDO's manual-BEGIN bookkeeping is not assumed.
 
 `(tenant_id,request_id)` is the idempotency key. The same normalized command returns its original decision, including denials. Reordering or repeating customer IDs does not change the fingerprint. Reusing a key with a different actor/action/customer/target throws `IdempotencyConflict`. Use a new request ID for a new business attempt after data or policy changes. Replay is not a current-permission query. Deleting request records shortens the deduplication guarantee.
+
+Schema and triggers are trusted deployment configuration. Triggers must not modify authorization, capacity or unrelated batch records. Postcondition checks cover planned records and receipts, not every possible trigger side effect.
 
 This is an executable SQLite reference protocol, not a claim of automatic safety for arbitrary databases, network filesystems, replication or non-cooperating writers. Production audit storage, schema migrations, idempotency retention and customer-status update APIs remain application responsibilities.
 
@@ -86,9 +88,9 @@ This is an executable SQLite reference protocol, not a claim of automatic safety
 
 Stable `Reason` values: `tenant_mismatch`, `snapshot_expired`, `actor_not_found`, `actor_inactive`, `permission_denied`, `department_missing`, `customer_not_found`, `already_owned`, `not_owned`, `owner_not_found`, `target_not_found`, `target_inactive`, `same_owner`, `protected`, `capacity_missing`, `capacity_exceeded`, `inconsistent_snapshot`.
 
-The first failure in deterministic batch order is returned. Structural input errors throw `InvalidArgumentException`; PHP type errors may throw `TypeError`. IDs are 1..128 UTF-8 bytes without surrounding whitespace or ASCII controls. Negative counters/capacities, invalid grants, empty/oversized batches and invalid versions are rejected.
+The first failure in deterministic batch order is returned. Structural input errors throw `InvalidArgumentException`; PHP type errors may throw `TypeError`. IDs are 1..128 UTF-8 bytes without surrounding ASCII whitespace or ASCII controls. Negative counters/capacities, invalid grants, empty/oversized batches and invalid versions are rejected.
 
-Executor exceptions include `IdempotencyConflict`, defensive `ConcurrentChange`, outer-transaction `LogicException`, PDO/JSON and invalid stored-data exceptions. A failed BEGIN applies no business writes. Failures after BEGIN attempt rollback; rollback failure throws `RuntimeException` and requires discarding the connection. Apply bounded retries at the application boundary with the same request ID for the same command; never turn an exception into permission.
+Executor exceptions include storage postcondition `PersistenceFailure`, `IdempotencyConflict`, defensive `ConcurrentChange`, outer-transaction `LogicException`, PDO/JSON and invalid stored-data exceptions. A failed BEGIN applies no business writes. Failures after BEGIN attempt rollback; rollback failure throws `RuntimeException` and requires discarding the connection. Apply bounded retries at the application boundary with the same request ID for the same command; never turn an exception into permission.
 
 ## Examples and checks
 
@@ -108,4 +110,4 @@ PHPUnit covers denial/error paths, transaction rollback using failing SQLite tri
 
 `tools/consumer-test.php [composer.phar]` archives and checks the source package, installs a mirrored path package in a clean directory with Packagist/network disabled, deletes that temporary source repository, then runs a separate consumer and all examples. `CRM_POLICY_KEEP_CONSUMER=1` retains its verification artifacts; otherwise they are removed.
 
-CI is configured for PHP 8.2/8.3/8.4/8.5; configured jobs are not evidence that they ran. Actual local results live in the archive-excluded `LOCAL_VERIFICATION.md`. See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before any private upload or public release.
+CI is configured for PHP 8.2/8.3/8.4/8.5; configured jobs are not evidence that they ran. Tests cover executed environments and cases, not an absence of bugs or production guarantees. See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks and [NOTICE.md](NOTICE.md) for license scope.
