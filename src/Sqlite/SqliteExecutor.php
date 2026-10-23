@@ -26,7 +26,16 @@ final class SqliteExecutor
         if ($this->running || $this->pdo->inTransaction()) { throw new \LogicException('Use a dedicated PDO connection without an outer transaction.'); }
         $this->assertExecutionConditions();
         // Explicit SQL COMMIT/ROLLBACK pair with BEGIN IMMEDIATE: PDO bookkeeping is not relied on.
-        $this->transactionStatement('BEGIN IMMEDIATE');
+        // PDO SQLite 8.2/8.3 may not report a transaction started with raw SQL.
+        // A rejected BEGIN never gives us ownership, so it must remain outside our rollback block.
+        try { $this->transactionStatement('BEGIN IMMEDIATE'); }
+        catch (\PDOException $error) {
+            if (($error->errorInfo[0] ?? null) === 'HY000' && ($error->errorInfo[1] ?? null) === 1
+                && ($error->errorInfo[2] ?? null) === 'cannot start a transaction within a transaction') {
+                throw new \LogicException('Use a dedicated PDO connection without an outer transaction.', 0, $error);
+            }
+            throw $error;
+        }
         $this->running = true;
         try {
             $this->assertExecutionConditions();

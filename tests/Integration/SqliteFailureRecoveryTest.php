@@ -90,6 +90,71 @@ final class SqliteFailureRecoveryTest extends TestCase
         $this->pdo->exec('ROLLBACK');
         self::assertSame(2, (int) $this->pdo->query("SELECT capacity_limit FROM crm_members WHERE id='alice'")->fetchColumn());
     }
+    #[DataProvider('unreportedOuterTransactions')]
+    public function testUnreportedOuterTransactionRemainsOwnedByCaller(string $begin, bool $commit): void
+    {
+        // Only the state report is overridden. Every SQL operation uses a real isolated SQLite connection.
+        $pdo = new class('sqlite::memory:') extends \PDO {
+            public array $transactionStatements = [];
+            public function inTransaction(): bool { return false; }
+            public function exec(string $statement): int|false
+            {
+                if (preg_match('/\A(?:BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)\b/i', ltrim($statement))) {
+                    $this->transactionStatements[] = $statement;
+                }
+                return parent::exec($statement);
+            }
+        };
+        Schema::create($pdo);
+        F::storeMember($pdo, F::member());
+        F::storeCustomer($pdo, F::customer('a')); F::storeCustomer($pdo, F::customer('b'));
+        $executor = new SqliteExecutor($pdo, new CapacityPolicy(false, false));
+        $pdo->exec($begin);
+        $finished = false;
+        try {
+            $pdo->exec("UPDATE crm_members SET capacity_limit=7 WHERE tenant_id='t' AND id='alice'");
+            $pdo->transactionStatements = [];
+            try { $executor->execute($this->command()); self::fail('Expected outer transaction rejection.'); }
+            catch (\LogicException $error) {
+                self::assertStringContainsString('outer transaction', $error->getMessage());
+                self::assertInstanceOf(\PDOException::class, $error->getPrevious());
+                self::assertSame(1, $error->getPrevious()->errorInfo[1]);
+            }
+            // No COMMIT, ROLLBACK or SAVEPOINT cleanup is allowed before our BEGIN succeeds.
+            self::assertSame(['BEGIN IMMEDIATE'], $pdo->transactionStatements);
+            self::assertSame(7, (int) $pdo->query("SELECT capacity_limit FROM crm_members WHERE id='alice'")->fetchColumn());
+            self::assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM crm_customers WHERE owner_id IS NOT NULL')->fetchColumn());
+            self::assertSame(0, (int) $pdo->query('SELECT SUM(version) FROM crm_customers')->fetchColumn());
+            self::assertSame(0, (int) $pdo->query('SELECT COUNT(*) FROM crm_requests')->fetchColumn());
+            $pdo->exec($commit ? (str_starts_with($begin, 'SAVEPOINT') ? 'RELEASE SAVEPOINT caller_scope' : 'COMMIT') : 'ROLLBACK');
+            $finished = true;
+            self::assertSame($commit ? 7 : 2, (int) $pdo->query("SELECT capacity_limit FROM crm_members WHERE id='alice'")->fetchColumn());
+            self::assertTrue($executor->execute($this->command())->decision->allowed);
+            self::assertTrue($executor->execute($this->command())->replayed);
+            self::assertSame(2, (int) $pdo->query('SELECT SUM(version) FROM crm_customers')->fetchColumn());
+        } finally {
+            if (!$finished) { $pdo->exec('ROLLBACK'); }
+        }
+    }
+    public static function unreportedOuterTransactions(): iterable
+    {
+        foreach (['BEGIN DEFERRED', 'BEGIN IMMEDIATE', 'BEGIN EXCLUSIVE', 'SAVEPOINT caller_scope'] as $begin) {
+            yield $begin . ' then caller rollback' => [$begin, false];
+            yield $begin . ' then caller commit' => [$begin, true];
+        }
+    }
+    public function testReadOnlyBeginFailureRemainsStorageErrorAndCanBeRetried(): void
+    {
+        $executor = new SqliteExecutor($this->pdo, new CapacityPolicy(false, false));
+        $this->pdo->exec('PRAGMA query_only = ON');
+        try { $executor->execute($this->command()); self::fail('Expected readonly storage error.'); }
+        catch (\PDOException $error) { self::assertSame(8, $error->errorInfo[1]); }
+        $this->untouched();
+        self::assertFalse($this->pdo->inTransaction());
+        $this->pdo->exec('PRAGMA query_only = OFF');
+        self::assertTrue($executor->execute($this->command())->decision->allowed);
+        self::assertTrue($executor->execute($this->command())->replayed);
+    }
     public function testReaderIsIndependentOfChangedDefaultFetchMode(): void
     {
         $executor = new SqliteExecutor($this->pdo, new CapacityPolicy(false, false));

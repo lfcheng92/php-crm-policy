@@ -95,13 +95,29 @@ $package = __DIR__ . '/vendor/lfcheng92/crm-policy/';
 require $package . 'examples/agency.php';
 require $package . 'examples/education.php';
 require $package . 'examples/sqlite.php';
-$pdo = new PDO('sqlite::memory:');
+// Force the older PDO state-reporting behavior; all statements still run on real SQLite.
+$pdo = new class('sqlite::memory:') extends PDO {
+    public function inTransaction(): bool { return false; }
+};
 \Lfcheng\CrmPolicy\Sqlite\Schema::create($pdo);
 $pdo->prepare('INSERT INTO crm_members VALUES (?, ?, ?, ?, ?, ?)')->execute(['smoke', 'actor', 'sales', 1, 1, json_encode([['name'=>'seller','grants'=>['claim'=>1]]], JSON_THROW_ON_ERROR)]);
 $pdo->prepare('INSERT INTO crm_customers VALUES (?, ?, ?, ?, ?, ?, ?, ?)')->execute(['smoke', 'sample', null, 'sales', 'active', 0, null, 0]);
 $pdo->exec("CREATE TRIGGER synthetic_ignore BEFORE INSERT ON crm_requests BEGIN SELECT RAISE(IGNORE); END");
 $executor = new \Lfcheng\CrmPolicy\Sqlite\SqliteExecutor($pdo, new CapacityPolicy(false, false));
 $command = new Command('smoke', 'actor', 'request', Action::Claim, ['sample']);
+$pdo->exec('BEGIN IMMEDIATE');
+$pdo->exec("UPDATE crm_members SET capacity_limit=2 WHERE tenant_id='smoke' AND id='actor'");
+$outerRejected = false;
+try { $executor->execute($command); } catch (\LogicException) { $outerRejected = true; }
+if (!$outerRejected || (int) $pdo->query("SELECT capacity_limit FROM crm_members WHERE id='actor'")->fetchColumn() !== 2
+    || (int) $pdo->query('SELECT COUNT(*) FROM crm_requests')->fetchColumn() !== 0) {
+    throw new RuntimeException('Installed executor changed an unreported outer transaction.');
+}
+$pdo->exec('ROLLBACK');
+if ((int) $pdo->query("SELECT capacity_limit FROM crm_members WHERE id='actor'")->fetchColumn() !== 1) {
+    throw new RuntimeException('Installed executor committed caller-owned work.');
+}
+echo "Installed executor: unreported outer transaction remains caller-owned.\n";
 try { $executor->execute($command); throw new RuntimeException('Ignored receipt was accepted.'); }
 catch (\Lfcheng\CrmPolicy\Sqlite\PersistenceFailure) {}
 if ((int) $pdo->query('SELECT COUNT(*) FROM crm_customers WHERE owner_id IS NOT NULL')->fetchColumn() !== 0) { throw new RuntimeException('Consumer rollback failed.'); }

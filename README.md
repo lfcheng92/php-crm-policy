@@ -108,7 +108,7 @@ $executor = new SqliteExecutor($pdo, new CapacityPolicy(false, false), $clock);
 
 本适配器在构造、每次执行前及取得事务后只读检查 journal_mode，仅接受 DELETE/TRUNCATE/PERSIST/MEMORY/WAL；OFF 或未知模式抛 `LogicException`，不会自动切换日志模式。连接在构造后被改为 OFF 同样会被拒绝；调用方须自行恢复支持的模式后再重试。MEMORY 只提供进程存续时的事务回滚，不增加断电/宕机保证。
 
-本适配器要求专用 PDO 连接，无外层事务，并在每次执行时要求 `PDO::ERRMODE_EXCEPTION`。构造后改为静默/警告错误模式会在写入前拒绝，不能把 SQL 失败当作成功；显式 SQL COMMIT/ROLLBACK 与 BEGIN 配对。`busy_timeout=5000`，锁等待超过时间、数据库不可写或非法持久数据会抛异常，不伪装成业务拒绝。存储时间必须是绝对格式 `Y-m-d\TH:i:s.uP`（微秒和时区偏移），例如 `2026-01-01T12:00:00.000000+00:00`；不接受相对日期。`Schema::create` 不使用 `IF NOT EXISTS` 来掩盖已有不兼容 schema。
+本适配器要求专用 PDO 连接，无外层事务，并在每次执行时要求 `PDO::ERRMODE_EXCEPTION`。PHP 8.2/8.3 的 PDO 可能无法报告原生 SQL BEGIN 的事务状态，因此执行器还将 SQLite 明确的嵌套 BEGIN 错误转换为 `LogicException`；BEGIN 成功前不取得事务所有权，绝不提交或回滚调用方的事务。锁竞争、只读数据库等其他 BEGIN 错误保留为存储异常。构造后改为静默/警告错误模式会在写入前拒绝，不能把 SQL 失败当作成功；显式 SQL COMMIT/ROLLBACK 与 BEGIN 配对。`busy_timeout=5000`，锁等待超过时间、数据库不可写或非法持久数据会抛异常，不伪装成业务拒绝。存储时间必须是绝对格式 `Y-m-d\TH:i:s.uP`（微秒和时区偏移），例如 `2026-01-01T12:00:00.000000+00:00`；不接受相对日期。`Schema::create` 不使用 `IF NOT EXISTS` 来掩盖已有不兼容 schema。
 
 数据库结构和触发器属于可信部署配置。不要让触发器修改授权、容量或其他批次记录，不能依靠本包验证任意触发器的所有副作用。提交前校验覆盖计划记录及回执，不是完整数据库审计。
 

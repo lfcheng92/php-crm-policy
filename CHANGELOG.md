@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve caller-owned raw SQLite transactions on PHP 8.2/8.3 by recognizing the specific nested-BEGIN error without taking transaction ownership; keep lock/readonly failures as storage errors. Cover deferred/immediate/exclusive BEGIN, outer SAVEPOINT, caller commit/rollback, retry/replay and installed-consumer behavior.
+
 - Standardize runtime and development PSR-4 namespaces on `Lfcheng\CrmPolicy\`.
 - Composer package name stays `lfcheng92/crm-policy`; repository and package coordinates are unchanged.
 - Earlier private-candidate consumers must update imports/FQCNs and regenerate Composer autoload files; no compatibility aliases are provided.
